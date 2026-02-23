@@ -1,0 +1,110 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}{{ shark_name }} - Shark Tank Analysis{% endblock %}
+
+{% block content %}
+<!-- Shark Navigation Bar -->
+<section class="shark-nav-section">
+    <div class="shark-nav-header">
+        <a href="{% url 'dashboard' %}" class="back-btn">← Back to Dashboard</a>
+        <h2 class="shark-page-title">🦈 {{ shark_name }} Analysis</h2>
+    </div>
+    <div class="shark-selector-bar shark-page-nav">
+        {% for sh in sharks %}
+        <a href="{% url 'shark_analysis' sh %}" 
+           class="shark-btn {% if shark_name == sh %}active{% endif %}">
+            {{ sh }}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Deal Overview Section -->
+<section class="deal-overview-section" id="deal-overview">
+    <div class="deal-overview-bar">
+        <div class="glass-stat-card" style="--card-color: var(--color-primary);">
+            <div class="glass-stat-icon">🤝</div>
+            <div class="glass-stat-content">
+                <span class="glass-stat-value">{{ stats.total_deals }}</span>
+                <span class="glass-stat-label">Total Deals</span>
+            </div>
+        </div>
+        
+        <div class="glass-stat-card" style="--card-color: var(--color-success);">
+            <div class="glass-stat-icon">📈</div>
+            <div class="glass-stat-content">
+                <span class="glass-stat-value">{{ stats.success_rate }}%</span>
+                <span class="glass-stat-label">Success Rate</span>
+            </div>
+        </div>
+        
+        <div class="glass-stat-card" style="--card-color: var(--color-accent);">
+            <div class="glass-stat-icon">💰</div>
+            <div class="glass-stat-content">
+                <span class="glass-stat-value">${{ stats.total_investment|floatformat:0|default:"0" }}</span>
+                <span class="glass-stat-label">Total Investment</span>
+            </div>
+        </div>
+        
+        <div class="glass-stat-card" style="--card-color: var(--color-warning);">
+            <div class="glass-stat-icon">📊</div>
+            <div class="glass-stat-content">
+                <span class="glass-stat-value">${{ stats.avg_deal_per_season|floatformat:0|default:"0" }}</span>
+                <span class="glass-stat-label">Avg Deal/Season</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Charts Section -->
+<!-- Charts Section: Deals by Season -->
+<section class="charts-section">
+    <div class="chart-card chart-full-width">
+        {{ charts.deals_by_season|safe }}
+    </div>
+</section>
+
+<!-- Charts Section: Valuation Comparison -->
+<section class="charts-section">
+    <div class="chart-card">
+        {{ charts.valuation_comparison|safe }}
+    </div>
+</section>
+
+<!-- Charts Section: Equity Trend -->
+<section class="charts-section">
+    <div class="chart-card">
+        {{ charts.equity_trend|safe }}
+    </div>
+</section>
+
+<!-- Charts Section: Shark Investment Trend -->
+<section class="charts-section">
+    <div class="chart-card">
+        {{ charts.shark_investment_trend|safe }}
+    </div>
+</section>
+
+<!-- Charts Section: Top Startups -->
+<section class="charts-section">
+    <div class="chart-card">
+        {{ charts.top_startups|safe }}
+    </div>
+</section>
+
+<!-- Charts Section: Industry Equity -->
+<section class="charts-section">
+    <div class="chart-card">
+        {{ charts.industry_equity|safe }}
+    </div>
+</section>
+
+<!-- Charts Section: Industry Funding -->
+<section class="charts-section">
+    <div class="chart-card">
+        {{ charts.industry_funding|safe }}
+    </div>
+</section>
+
+
+{% endblock %}

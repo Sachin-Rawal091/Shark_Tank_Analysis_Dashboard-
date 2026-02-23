@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Shark Tank Analysis Dashboard - Explore investment data and trends from Shark Tank US">
+    <title>{% block title %}Shark Tank Analysis Dashboard{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'dashboard/css/style.css' %}?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Plotly fallback check
+            if (typeof Plotly === 'undefined') {
+                console.error('Plotly.js failed to load. Check your internet connection or CDN availability.');
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div class="cursor-dot" data-cursor-dot></div>
+    <div class="cursor-outline" data-cursor-outline></div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const cursorDot = document.querySelector('[data-cursor-dot]');
+            const cursorOutline = document.querySelector('[data-cursor-outline]');
+            
+            // Mouse movement
+            window.addEventListener('mousemove', function(e) {
+                const posX = e.clientX;
+                const posY = e.clientY;
+                
+                // Dot follows instantly
+                cursorDot.style.left = `${posX}px`;
+                cursorDot.style.top = `${posY}px`;
+                
+                // Outline follows with delay (using CSS transition or simple JS)
+                cursorOutline.animate({
+                    left: `${posX}px`,
+                    top: `${posY}px`
+                }, { duration: 500, fill: "forwards" });
+            });
+
+            // Hover effects
+            const hoverTargets = document.querySelectorAll('a, button, .chart-card, select, input, .shark-btn');
+            hoverTargets.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursorOutline.classList.add('cursor-hover');
+                    cursorDot.classList.add('cursor-hover');
+                });
+                el.addEventListener('mouseleave', () => {
+                    cursorOutline.classList.remove('cursor-hover');
+                    cursorDot.classList.remove('cursor-hover');
+                });
+            });
+        });
+    </script>
+
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">🦈</span>
+                    <h1>Shark Tank Analysis</h1>
+                </div>
+                <nav class="nav">
+                    <span class="nav-tagline">Data-Driven Investment Insights</span>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Shark Tank Analysis Dashboard &copy; 2026 | Built with Django, Pandas & Plotly</p>
+        </div>
+    </footer>
+</body>
+
+</html>

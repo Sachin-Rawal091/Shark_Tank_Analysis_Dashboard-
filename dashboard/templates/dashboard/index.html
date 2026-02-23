@@ -1,0 +1,618 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<!-- Shark Selector Bar -->
+<section class="shark-selector-section">
+    <div class="shark-selector-bar">
+        <a href="{% url 'dashboard' %}"
+            class="shark-btn active">
+            All Sharks
+        </a>
+        {% for sh in filter_options.sharks %}
+        <a href="{% url 'shark_analysis' sh %}"
+            class="shark-btn">
+            {{ sh }}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Filter Panel -->
+<section class="filter-panel" id="filterPanel">
+    <div class="filter-panel-header">
+        <div class="filter-panel-title">
+            <span class="filter-icon">🔍</span>
+            <h2>Filters</h2>
+            <span class="active-filter-count" id="activeFilterCount" style="display:none;">0</span>
+        </div>
+        <button class="btn-clear-all" id="btnClearAll" style="display:none;">
+            <span>✕</span> Clear All
+        </button>
+    </div>
+
+    <div class="filter-grid">
+        <!-- Season Filter Card -->
+        <div class="filter-card" data-filter="seasons">
+            <div class="filter-card-header">
+                <h3>Season</h3>
+                <span class="filter-card-count" data-count="seasons"></span>
+            </div>
+            <div class="filter-chips">
+                {% for s in filter_options.seasons %}
+                <label class="filter-chip" data-type="seasons" data-value="{{ s }}">
+                    <input type="checkbox" name="seasons" value="{{ s }}">
+                    <span class="chip-label">{{ s }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Industry Filter Card -->
+        <div class="filter-card filter-card-wide" data-filter="industries">
+            <div class="filter-card-header">
+                <h3>Industry</h3>
+                <span class="filter-card-count" data-count="industries"></span>
+            </div>
+            <div class="filter-scroll">
+                <div class="filter-chips">
+                    {% for ind in filter_options.industries %}
+                    <label class="filter-chip" data-type="industries" data-value="{{ ind }}">
+                        <input type="checkbox" name="industries" value="{{ ind }}">
+                        <span class="chip-label">{{ ind }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Shark Filter Card -->
+        <div class="filter-card" data-filter="sharks">
+            <div class="filter-card-header">
+                <h3>Shark</h3>
+                <span class="filter-card-count" data-count="sharks"></span>
+            </div>
+            <div class="filter-chips">
+                {% for sh in filter_options.sharks %}
+                <label class="filter-chip" data-type="sharks" data-value="{{ sh }}">
+                    <input type="checkbox" name="sharks" value="{{ sh }}">
+                    <span class="chip-label">{{ sh }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Deal Status Filter Card -->
+        <div class="filter-card" data-filter="got_deal">
+            <div class="filter-card-header">
+                <h3>Deal Status</h3>
+            </div>
+            <div class="filter-pills">
+                {% for ds in filter_options.deal_statuses %}
+                <label class="filter-pill {% if ds.value == 'all' %}active{% endif %}" data-value="{{ ds.value }}">
+                    <input type="radio" name="got_deal" value="{{ ds.value }}" {% if ds.value == 'all' %}checked{% endif %}>
+                    <span class="pill-label">{{ ds.label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats-section" id="statsSection">
+    <div class="stat-card">
+        <div class="stat-icon">&#128202;</div>
+        <div class="stat-content">
+            <span class="stat-value" data-stat="total_pitches">{{ stats.total_pitches }}</span>
+            <span class="stat-label">Total Pitches</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#129309;</div>
+        <div class="stat-content">
+            <span class="stat-value" data-stat="total_deals">{{ stats.total_deals }}</span>
+            <span class="stat-label">Deals Made</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128200;</div>
+        <div class="stat-content">
+            <span class="stat-value" data-stat="deal_rate">{{ stats.deal_rate }}%</span>
+            <span class="stat-label">Success Rate</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128176;</div>
+        <div class="stat-content">
+            <span class="stat-value" data-stat="total_investment">${{ stats.total_investment|floatformat:0|default:"0" }}</span>
+            <span class="stat-label">Total Investment</span>
+        </div>
+    </div>
+</section>
+
+<!-- Charts Section — wrapped in container for dynamic teardown/rebuild -->
+<div id="chartsContainer">
+    <section class="charts-section">
+        <div class="chart-card chart-full-width" id="wrap-deals_by_season">
+            {{ charts.deals_by_season|safe }}
+        </div>
+    </section>
+
+    <section class="charts-section">
+        <div class="chart-card" id="wrap-deal_success_rate">
+            {{ charts.deal_success_rate|safe }}
+        </div>
+    </section>
+
+    <section class="charts-section">
+        <div class="chart-card" id="wrap-deals_by_industry">
+            {{ charts.deals_by_industry|safe }}
+        </div>
+    </section>
+
+    <section class="charts-section">
+        <div class="chart-card" id="wrap-investment_by_shark">
+            {{ charts.investment_by_shark|safe }}
+        </div>
+    </section>
+
+    <section class="charts-section">
+        <div class="chart-card" id="wrap-top_industries">
+            {{ charts.top_industries|safe }}
+        </div>
+    </section>
+
+    <section class="charts-section">
+        <div class="chart-card" id="wrap-avg_deal_by_season">
+            {{ charts.avg_deal_by_season|safe }}
+        </div>
+    </section>
+</div>
+
+<!-- Strategy Engine: FilterManager + ChartEngine -->
+<script>
+(function() {
+    'use strict';
+
+    // ── Dark Theme Palette ─────────────────────────────────────────────
+    const COLORS   = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#a855f7','#3b82f6'];
+    const BG       = '#1a1a2e';
+    const PLOT_BG  = '#2d2d3f';
+    const GRID     = '#3d3d5f';
+    const TEXT     = '#e2e8f0';
+    const FONT     = 'Inter, sans-serif';
+
+    function base(title, extra) {
+        return Object.assign({
+            title:  { text: title, font: { size: 16, color: TEXT, family: FONT } },
+            paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+            font:   { color: TEXT, family: FONT, size: 12 },
+            margin: { l: 60, r: 30, t: 55, b: 50 },
+            height: 400,
+            hovermode: 'closest',
+            hoverlabel: { bgcolor: '#252540', font: { color: TEXT, size: 12 }, bordercolor: '#6366f1' },
+            legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, xanchor: 'center', x: 0.5, font: { size: 11 } },
+        }, extra || {});
+    }
+
+    function ax(extra) {
+        return Object.assign({ gridcolor: GRID, linecolor: TEXT, zerolinecolor: GRID, tickfont: { size: 11 } }, extra || {});
+    }
+
+    // ── ChartEngine: hint → Plotly {data, layout} ──────────────────────
+
+    const ChartEngine = {
+
+        line(block) {
+            const traces = block.datasets.map((ds, i) => ({
+                x: block.labels, y: ds.values, name: ds.name,
+                type: 'scatter', mode: 'lines+markers',
+                line: { color: COLORS[i % COLORS.length], width: 3, shape: 'spline' },
+                marker: { size: 7 },
+                hovertemplate: '<b>%{x}</b><br>' + ds.name + ': %{y:,.0f}<extra></extra>',
+            }));
+            return { data: traces, layout: base(block.title, { xaxis: ax(), yaxis: ax() }) };
+        },
+
+        area(block) {
+            const traces = block.datasets.map((ds, i) => ({
+                x: block.labels, y: ds.values, name: ds.name,
+                type: 'scatter', mode: 'lines', fill: 'tozeroy',
+                line: { color: COLORS[i % COLORS.length], width: 2, shape: 'spline' },
+                hovertemplate: '<b>%{x}</b><br>' + ds.name + ': %{y:,.0f}<extra></extra>',
+            }));
+            return { data: traces, layout: base(block.title, { xaxis: ax(), yaxis: ax() }) };
+        },
+
+        multi_line(block) {
+            const traces = block.datasets.map((ds, i) => ({
+                x: block.labels, y: ds.values, name: ds.name,
+                type: 'scatter', mode: 'lines+markers',
+                line: { color: COLORS[i % COLORS.length], width: 3 },
+                marker: { size: 6 },
+                hovertemplate: '<b>%{x}</b><br>' + ds.name + ': %{y:,.0f}<extra></extra>',
+            }));
+            return { data: traces, layout: base(block.title, { xaxis: ax(), yaxis: ax() }) };
+        },
+
+        stacked_area(block) {
+            const traces = block.datasets.map((ds, i) => ({
+                x: block.labels, y: ds.values, name: ds.name,
+                type: 'scatter', mode: 'lines',
+                fill: i === 0 ? 'tozeroy' : 'tonexty',
+                line: { color: COLORS[i % COLORS.length], width: 1 },
+                hovertemplate: '<b>%{x}</b><br>' + ds.name + ': %{y:,.0f}<extra></extra>',
+            }));
+            return { data: traces, layout: base(block.title, { xaxis: ax(), yaxis: ax() }) };
+        },
+
+        bar(block) {
+            const traces = block.datasets.map((ds, i) => ({
+                x: block.labels, y: ds.values, name: ds.name,
+                type: 'bar',
+                marker: { color: COLORS[i % COLORS.length], opacity: 0.9 },
+                hovertemplate: '<b>%{x}</b><br>' + ds.name + ': %{y:,.0f}<extra></extra>',
+            }));
+            return { data: traces, layout: base(block.title, { barmode: 'group', bargap: 0.3, xaxis: ax(), yaxis: ax({ title: 'Amount' }) }) };
+        },
+
+        grouped_bar(block) {
+            const traces = block.datasets.map((ds, i) => ({
+                x: block.labels, y: ds.values, name: ds.name,
+                type: 'bar',
+                marker: { color: COLORS[i % COLORS.length], opacity: 0.9 },
+                hovertemplate: '<b>%{x}</b><br>' + ds.name + ': %{y:,.0f}<extra></extra>',
+            }));
+            return { data: traces, layout: base(block.title, { barmode: 'group', bargap: 0.2, xaxis: ax({ tickangle: -30 }), yaxis: ax() }) };
+        },
+
+        horizontal_bar(block) {
+            const ds = block.datasets[0];
+            const trace = {
+                y: block.labels, x: ds.values, name: ds.name,
+                type: 'bar', orientation: 'h',
+                marker: { color: COLORS.slice(0, block.labels.length).reverse() },
+                hovertemplate: '<b>%{y}</b><br>$%{x:,.0f}<extra></extra>',
+            };
+            return { data: [trace], layout: base(block.title, {
+                xaxis: ax({ title: 'Amount ($)' }), yaxis: ax({ automargin: true }),
+                height: Math.max(400, block.labels.length * 45),
+                margin: { l: 150, r: 30, t: 55, b: 50 },
+            })};
+        },
+
+        pie(block) {
+            const ds = block.datasets[0];
+            return {
+                data: [{
+                    labels: block.labels, values: ds.values,
+                    type: 'pie', hole: 0,
+                    marker: { colors: COLORS.slice(0, block.labels.length) },
+                    textinfo: 'label+percent', textposition: 'outside',
+                    textfont: { color: TEXT, size: 12 },
+                    hovertemplate: '<b>%{label}</b><br>%{value:,.0f} (%{percent})<extra></extra>',
+                }],
+                layout: base(block.title, {
+                    showlegend: true,
+                    legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: 10 } },
+                }),
+            };
+        },
+
+        donut(block) {
+            const ds = block.datasets[0];
+            return {
+                data: [{
+                    labels: block.labels, values: ds.values,
+                    type: 'pie', hole: 0.5,
+                    marker: { colors: COLORS.slice(0, block.labels.length) },
+                    textinfo: 'label+percent', textposition: 'outside',
+                    textfont: { color: TEXT, size: 12 },
+                    hovertemplate: '<b>%{label}</b><br>%{value:,.0f} (%{percent})<extra></extra>',
+                }],
+                layout: base(block.title, {
+                    showlegend: true,
+                    legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: 10 } },
+                }),
+            };
+        },
+
+        scatter(block) {
+            const ds = block.datasets[0];
+            const traces = [{
+                x: block.labels, y: ds.values, mode: 'markers', type: 'scatter',
+                marker: { color: COLORS[0], size: 9, opacity: 0.7, line: { width: 1, color: '#e2e8f0' } },
+                hovertemplate: 'Ask: $%{x:,.0f}<br>Deal: $%{y:,.0f}<extra></extra>',
+                name: ds.name,
+            }];
+            // Add trendline if flagged
+            if (block.trendline && block.labels.length >= 8) {
+                const xArr = block.labels.map(Number);
+                const yArr = ds.values.map(Number);
+                const n = xArr.length;
+                const sumX = xArr.reduce((a,b)=>a+b,0), sumY = yArr.reduce((a,b)=>a+b,0);
+                const sumXY = xArr.reduce((a,v,i)=>a+v*yArr[i],0);
+                const sumX2 = xArr.reduce((a,v)=>a+v*v,0);
+                const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+                const intercept = (sumY - slope*sumX) / n;
+                const xSorted = [...xArr].sort((a,b)=>a-b);
+                traces.push({
+                    x: [xSorted[0], xSorted[xSorted.length-1]],
+                    y: [slope*xSorted[0]+intercept, slope*xSorted[xSorted.length-1]+intercept],
+                    mode: 'lines', type: 'scatter',
+                    line: { color: '#ef4444', width: 2, dash: 'dash' },
+                    name: 'Trend', showlegend: true,
+                });
+            }
+            return { data: traces, layout: base(block.title, {
+                xaxis: ax({ title: 'Original Ask ($)' }), yaxis: ax({ title: 'Deal Amount ($)' }),
+            })};
+        },
+
+        stacked_bar(block) {
+            const traces = block.datasets.map((ds, i) => ({
+                x: block.labels, y: ds.values, name: ds.name,
+                type: 'bar',
+                marker: { color: COLORS[i % COLORS.length] },
+                hovertemplate: '<b>%{x}</b><br>' + ds.name + ': %{y:,.0f}<extra></extra>',
+            }));
+            return { data: traces, layout: base(block.title, {
+                barmode: 'stack', bargap: 0.15,
+                xaxis: ax({ dtick: 1 }), yaxis: ax({ title: 'Count' }),
+            })};
+        },
+
+        heatmap(block) {
+            const ds = block.datasets[0];
+            // ds.values is a 2D array: rows = sharks (y), cells = industries (x)
+            return {
+                data: [{
+                    z: ds.values,
+                    x: block.labels,
+                    y: block.y_labels || [],
+                    type: 'heatmap',
+                    colorscale: [[0,'#1a1a2e'],[0.5,'#6366f1'],[1,'#f59e0b']],
+                    hovertemplate: '%{y} × %{x}<br>$%{z:,.0f}<extra></extra>',
+                    showscale: true,
+                    colorbar: { tickfont: { color: TEXT }, title: { text: '$', font: { color: TEXT } } },
+                }],
+                layout: base(block.title, {
+                    xaxis: ax({ tickangle: -35, automargin: true }),
+                    yaxis: ax({ automargin: true }),
+                    height: 450,
+                    margin: { l: 100, r: 60, t: 55, b: 100 },
+                }),
+            };
+        },
+    };
+
+    // ── FilterManager ──────────────────────────────────────────────────
+
+    class FilterManager {
+        constructor() {
+            this.state = {
+                seasons: new Set(),
+                industries: new Set(),
+                sharks: new Set(),
+                got_deal: 'all'
+            };
+            this._debounceTimer = null;
+            this._isLoading = false;
+            this.init();
+        }
+
+        init() {
+            document.querySelectorAll('.filter-chip input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const type = e.target.closest('.filter-chip').dataset.type;
+                    const value = e.target.value;
+                    this.toggle(type, value, e.target.checked);
+                });
+            });
+
+            document.querySelectorAll('.filter-pill input[type="radio"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    this.state.got_deal = e.target.value;
+                    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+                    e.target.closest('.filter-pill').classList.add('active');
+                    this.scheduleUpdate();
+                    this.updateUI();
+                });
+            });
+
+            document.getElementById('btnClearAll').addEventListener('click', () => this.clearAll());
+        }
+
+        toggle(type, value, checked) {
+            if (checked) this.state[type].add(value);
+            else this.state[type].delete(value);
+            const chip = document.querySelector(`.filter-chip[data-type="${type}"][data-value="${value}"]`);
+            if (chip) chip.classList.toggle('active', checked);
+            this.updateUI();
+            this.scheduleUpdate();
+        }
+
+        updateUI() {
+            ['seasons', 'industries', 'sharks'].forEach(type => {
+                const countEl = document.querySelector(`[data-count="${type}"]`);
+                const count = this.state[type].size;
+                if (countEl) {
+                    countEl.textContent = count > 0 ? count : '';
+                    countEl.classList.toggle('has-count', count > 0);
+                }
+            });
+            const total = this.state.seasons.size + this.state.industries.size + this.state.sharks.size + (this.state.got_deal !== 'all' ? 1 : 0);
+            const badge = document.getElementById('activeFilterCount');
+            const clearBtn = document.getElementById('btnClearAll');
+            badge.style.display = total > 0 ? 'inline-flex' : 'none';
+            clearBtn.style.display = total > 0 ? 'inline-flex' : 'none';
+            if (total > 0) badge.textContent = total;
+        }
+
+        scheduleUpdate() {
+            clearTimeout(this._debounceTimer);
+            this._debounceTimer = setTimeout(() => this.fetchData(), 300);
+        }
+
+        async fetchData() {
+            if (this._isLoading) return;
+            this._isLoading = true;
+            this.setLoadingState(true);
+            try {
+                const resp = await fetch('/api/filter/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        seasons: [...this.state.seasons],
+                        industries: [...this.state.industries],
+                        sharks: [...this.state.sharks],
+                        got_deal: this.state.got_deal
+                    })
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                this.updateStats(data.stats);
+                this.renderCharts(data.chart_data);
+                this.renderInsights(data.insights || []);
+            } catch (err) {
+                console.error('Filter fetch error:', err);
+            } finally {
+                this._isLoading = false;
+                this.setLoadingState(false);
+            }
+        }
+
+        setLoadingState(loading) {
+            document.querySelectorAll('.chart-card').forEach(card => {
+                card.classList.toggle('filter-loading', loading);
+            });
+        }
+
+        updateStats(stats) {
+            const statMap = {
+                'total_pitches': stats.total_pitches,
+                'total_deals': stats.total_deals,
+                'deal_rate': stats.deal_rate + '%',
+                'total_investment': '$' + Math.round(stats.total_investment).toLocaleString(),
+            };
+            Object.entries(statMap).forEach(([key, value]) => {
+                const el = document.querySelector(`[data-stat="${key}"]`);
+                if (el) {
+                    el.classList.add('stat-updating');
+                    setTimeout(() => { el.textContent = value; el.classList.remove('stat-updating'); }, 150);
+                }
+            });
+        }
+
+        // ─── Core: destroy → adaptive grid → render ────────────────────
+        renderCharts(chartData) {
+            if (typeof Plotly === 'undefined') { console.error('Plotly not loaded'); return; }
+
+            const container = document.getElementById('chartsContainer');
+
+            // 1. Purge all existing Plotly instances
+            container.querySelectorAll('[id^="plotly-"]').forEach(div => {
+                try { Plotly.purge(div); } catch(e) {}
+            });
+
+            // 2. Destroy all DOM
+            container.innerHTML = '';
+
+            if (!Array.isArray(chartData) || chartData.length === 0) {
+                container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:3rem;">No chart data available for the current filters.</p>';
+                return;
+            }
+
+            // 3. Adaptive grid container (Rule 10)
+            const grid = document.createElement('div');
+            const count = chartData.length;
+            if (count <= 2)      grid.className = 'charts-adaptive-grid grid-2col';
+            else if (count <= 4) grid.className = 'charts-adaptive-grid grid-2x2';
+            else                 grid.className = 'charts-adaptive-grid grid-auto';
+            container.appendChild(grid);
+
+            // 4. Build each chart
+            chartData.forEach(block => {
+                const builder = ChartEngine[block.hint];
+                if (!builder) { console.warn('Unknown hint:', block.hint); return; }
+
+                const { data: traces, layout } = builder(block);
+                const isWide = block.wide === true;
+
+                const card = document.createElement('div');
+                card.className = 'chart-card' + (isWide ? ' chart-card-wide' : '');
+                card.id = 'wrap-' + block.id;
+
+                const chartDiv = document.createElement('div');
+                chartDiv.id = 'plotly-' + block.id + '-' + Date.now();
+                chartDiv.style.width = '100%';
+                chartDiv.style.minHeight = '380px';
+
+                card.appendChild(chartDiv);
+                grid.appendChild(card);
+
+                Plotly.newPlot(chartDiv, traces, layout, {
+                    displayModeBar: false,
+                    responsive: true
+                });
+            });
+        }
+
+        // ─── Insight cards (Rule 11) ────────────────────────────────────
+        renderInsights(insights) {
+            // Remove any existing insight panel
+            const old = document.getElementById('insightPanel');
+            if (old) old.remove();
+
+            if (!insights || insights.length === 0) return;
+
+            const panel = document.createElement('div');
+            panel.id = 'insightPanel';
+            panel.className = 'insight-panel';
+
+            const header = document.createElement('div');
+            header.className = 'insight-header';
+            header.innerHTML = '<span class="insight-icon">💡</span><span>Key Insights</span>';
+            panel.appendChild(header);
+
+            const list = document.createElement('div');
+            list.className = 'insight-list';
+            insights.forEach(text => {
+                const card = document.createElement('div');
+                card.className = 'insight-card';
+                card.textContent = text;
+                list.appendChild(card);
+            });
+            panel.appendChild(list);
+
+            const container = document.getElementById('chartsContainer');
+            container.parentNode.insertBefore(panel, container.nextSibling);
+        }
+
+        clearAll() {
+            this.state.seasons.clear();
+            this.state.industries.clear();
+            this.state.sharks.clear();
+            this.state.got_deal = 'all';
+            document.querySelectorAll('.filter-chip input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+            document.querySelectorAll('.filter-chip').forEach(chip => { chip.classList.remove('active'); });
+            const allRadio = document.querySelector('.filter-pill input[value="all"]');
+            if (allRadio) allRadio.checked = true;
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+            const allPill = document.querySelector('.filter-pill[data-value="all"]');
+            if (allPill) allPill.classList.add('active');
+            this.updateUI();
+            this.scheduleUpdate();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => new FilterManager());
+    } else {
+        new FilterManager();
+    }
+})();
+</script>
+
+{% endblock %}
+
