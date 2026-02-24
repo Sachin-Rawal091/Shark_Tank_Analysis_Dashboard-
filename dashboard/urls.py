@@ -9,3 +9,4 @@ urlpatterns = [
     path('api/filter/', views.api_filter, name='api_filter'),
     path('shark/<str:shark_name>/', views.shark_analysis, name='shark_analysis'),
 ]
+    
