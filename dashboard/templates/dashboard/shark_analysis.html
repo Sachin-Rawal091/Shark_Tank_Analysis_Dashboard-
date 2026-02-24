@@ -1,4 +1,5 @@
 {% extends 'dashboard/base.html' %}
+{% load static %}
 
 {% block title %}{{ shark_name }} - Shark Tank Analysis{% endblock %}
 
@@ -57,54 +58,22 @@
 </section>
 
 <!-- Charts Section -->
-<!-- Charts Section: Deals by Season -->
-<section class="charts-section">
-    <div class="chart-card chart-full-width">
-        {{ charts.deals_by_season|safe }}
-    </div>
-</section>
+<div id="chartsContainer">
+    <!-- Dynamic charts will be rendered here -->
+</div>
 
-<!-- Charts Section: Valuation Comparison -->
-<section class="charts-section">
-    <div class="chart-card">
-        {{ charts.valuation_comparison|safe }}
-    </div>
-</section>
+<!-- Load Plotly and Chart Engine -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="{% static 'dashboard/js/chart_engine.js' %}"></script>
 
-<!-- Charts Section: Equity Trend -->
-<section class="charts-section">
-    <div class="chart-card">
-        {{ charts.equity_trend|safe }}
-    </div>
-</section>
-
-<!-- Charts Section: Shark Investment Trend -->
-<section class="charts-section">
-    <div class="chart-card">
-        {{ charts.shark_investment_trend|safe }}
-    </div>
-</section>
-
-<!-- Charts Section: Top Startups -->
-<section class="charts-section">
-    <div class="chart-card">
-        {{ charts.top_startups|safe }}
-    </div>
-</section>
-
-<!-- Charts Section: Industry Equity -->
-<section class="charts-section">
-    <div class="chart-card">
-        {{ charts.industry_equity|safe }}
-    </div>
-</section>
-
-<!-- Charts Section: Industry Funding -->
-<section class="charts-section">
-    <div class="chart-card">
-        {{ charts.industry_funding|safe }}
-    </div>
-</section>
+<script>
+    const initialChartData = JSON.parse("{{ initial_chart_data|escapejs }}");
+    document.addEventListener('DOMContentLoaded', () => {
+        if (initialChartData && initialChartData.length > 0) {
+            window.renderDynamicCharts(initialChartData, 'chartsContainer');
+        }
+    });
+</script>
 
 
 {% endblock %}

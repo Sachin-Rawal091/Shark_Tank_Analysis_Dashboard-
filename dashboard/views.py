@@ -6,20 +6,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .utils import load_data, get_filter_options, filter_data, get_stats
-from .charts import (
-    deals_by_season_chart,
-    deals_by_industry_chart,
-    investment_by_shark_chart,
-    deal_success_rate_chart,
-    top_industries_investment_chart,
-    avg_deal_by_season_chart,
-    valuation_comparison_chart,
-    equity_trend_chart,
-    shark_investment_trend_chart,
-    top_funded_startups_chart,
-    industry_equity_chart,
-    industry_funding_chart
-)
+from .data_engine import build_chart_data
 
 
 def dashboard(request):
@@ -30,20 +17,19 @@ def dashboard(request):
     # Initial load: no filters applied, show all data
     stats = get_stats(df)
     
-    # Generate initial charts as HTML for SSR
-    charts = {
-        'deals_by_season': deals_by_season_chart(df),
-        'deals_by_industry': deals_by_industry_chart(df),
-        'investment_by_shark': investment_by_shark_chart(df),
-        'deal_success_rate': deal_success_rate_chart(df),
-        'top_industries': top_industries_investment_chart(df),
-        'avg_deal_by_season': avg_deal_by_season_chart(df),
-    }
+    # Generate initial charts via data_engine
+    engine_result = build_chart_data(df, {
+        'seasons': [],
+        'industries': [],
+        'sharks': [],
+        'got_deal': 'all',
+    })
     
     context = {
         'filter_options': filter_options,
         'stats': stats,
-        'charts': charts,
+        'initial_chart_data': json.dumps(engine_result['chart_data']),
+        'initial_insights': json.dumps(engine_result['insights']),
     }
     
     return render(request, 'dashboard/index.html', context)
@@ -81,7 +67,6 @@ def api_filter(request):
     stats = get_stats(filtered_df)
 
     # Build context-aware chart data (strategy engine)
-    from .data_engine import build_chart_data
     got_deal_val = got_deal
     engine_result = build_chart_data(filtered_df, {
         'seasons': seasons,
@@ -165,22 +150,21 @@ def shark_analysis(request, shark_name):
     # Get shark-specific stats
     stats = get_shark_stats(df, shark_name)
     
-    # Generate all charts
-    charts = {
-        'deals_by_season': deals_by_season_chart(filtered_df),
-        'valuation_comparison': valuation_comparison_chart(filtered_df),
-        'equity_trend': equity_trend_chart(filtered_df),
-        'shark_investment_trend': shark_investment_trend_chart(df, shark_name),
-        'top_startups': top_funded_startups_chart(filtered_df),
-        'industry_equity': industry_equity_chart(filtered_df),
-        'industry_funding': industry_funding_chart(filtered_df),
+    # Generate context-aware charts via data_engine
+    filters = {
+        'seasons': [],
+        'industries': [],
+        'sharks': [] if shark_name == 'All Sharks' else [shark_name],
+        'got_deal': 'yes' if shark_name == 'All Sharks' else 'all',
     }
+    engine_result = build_chart_data(filtered_df, filters)
     
     context = {
         'shark_name': shark_name,
         'sharks': filter_options['sharks'],
         'stats': stats,
-        'charts': charts,
+        'initial_chart_data': json.dumps(engine_result['chart_data']),
+        'initial_insights': json.dumps(engine_result['insights']),
     }
     
     return render(request, 'dashboard/shark_analysis.html', context)
