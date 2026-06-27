@@ -1,2 +1,9 @@
+[project]
+name = "shark-tank-analysis-dashboard"
+version = "0.1.0"
+dependencies = [
+    "django"
+]
+
 [tool.vercel]
 entrypoint = "shark_tank_graphy.asgi:application"
