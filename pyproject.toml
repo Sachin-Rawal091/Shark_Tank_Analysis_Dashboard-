@@ -2,7 +2,8 @@
 name = "shark-tank-analysis-dashboard"
 version = "0.1.0"
 dependencies = [
-    "django"
+    "django",
+    "pandas",
 ]
 
 [tool.vercel]
