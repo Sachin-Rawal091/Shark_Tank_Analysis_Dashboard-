@@ -122,5 +122,9 @@ update==0.0.1
 urllib3==2.5.0
 wcwidth==0.2.13
 Werkzeug==3.1.5
+Django
+pandas
+numpy
+openpyxl
 widgetsnbextension==4.0.15
 wikipedia==1.4.0
