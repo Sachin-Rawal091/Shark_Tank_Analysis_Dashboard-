@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--9axc-6=r*f%yuk47%h5&uv(3*j=g3cjxafy(x+x*6e8i_vy98'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure--9axc-6=r*f%yuk47%h5&uv(3*j=g3cjxafy(x+x*6e8i_vy98')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'shark-tank-analysis-dashboard.vercel.app',
+    os.getenv('VERCEL_URL', ''),
+]
+
+# Remove empty strings from ALLOWED_HOSTS
+ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
 
 
 # Application definition
@@ -42,6 +51,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # For serving static files on Vercel
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -115,15 +125,33 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'dashboard' / 'static',
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# WhiteNoise configuration for Vercel
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Media files
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Security Settings for Production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_SECURITY_POLICY = {
+        'default-src': ("'self'",),
+        'script-src': ("'self'", "'unsafe-inline'", 'https://cdn.plot.ly'),
+        'style-src': ("'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'),
+        'font-src': ("'self'", 'https://fonts.gstatic.com'),
+        'img-src': ("'self'", 'data:', 'https:'),
+        'connect-src': ("'self'", 'https://cdn.plot.ly'),
+    }
 
 # Logging Configuration
 LOGGING = {
